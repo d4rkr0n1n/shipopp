@@ -1,5 +1,10 @@
 "use client";
+import Script from "next/script";
 import { useState } from "react";
+
+type RazorpaySuccess = { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string };
+type RazorpayCheckout = { open: () => void; on: (event: "payment.failed", callback: (response: { error?: { description?: string } }) => void) => void };
+declare global { interface Window { Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckout } }
 
 const plans = [
   { id: "launch", name: "Launch", price: 899, copy: "For teams shipping their first reliable production stack.", features: ["CI/CD pipeline setup", "Cloud infrastructure baseline", "Monitoring & alerts", "8 engineering hours / month"] },
@@ -16,18 +21,39 @@ const capabilities = [
 export default function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [noticeKind, setNoticeKind] = useState<"error" | "success">("error");
+  const [checkoutReady, setCheckoutReady] = useState(false);
   async function checkout(plan: string) {
+    if (!checkoutReady || !window.Razorpay) {
+      setNoticeKind("error"); setNotice("Secure checkout is still loading. Please try again in a moment."); return;
+    }
     setBusy(plan); setNotice("");
     try {
       const response = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan }) });
-      const data = await response.json();
+      const data = await response.json() as { subscriptionId?: string; keyId?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Checkout is unavailable.");
-      if (data.url) window.location.href = data.url;
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Checkout is unavailable."); }
-    finally { setBusy(null); }
+      if (!data.subscriptionId || !data.keyId) throw new Error("Checkout returned an incomplete response.");
+      const razorpay = new window.Razorpay({
+        key: data.keyId, subscription_id: data.subscriptionId, name: "ShipOps", currency: "INR",
+        description: `${plans.find((item) => item.id === plan)?.name || "DevOps"} monthly subscription`, theme: { color: "#779d00" },
+        modal: { ondismiss: () => { setNoticeKind("error"); setNotice("Checkout was cancelled. No payment was taken."); setBusy(null); } },
+        handler: async (payment: RazorpaySuccess) => {
+          try {
+            const verification = await fetch("/api/checkout/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payment) });
+            const result = await verification.json() as { verified?: boolean; error?: string };
+            if (!verification.ok || !result.verified) throw new Error(result.error || "Payment verification failed.");
+            setNoticeKind("success"); setNotice("Payment verified. Welcome to ShipOps — we’ll contact you with onboarding details.");
+          } catch (error) { setNoticeKind("error"); setNotice(error instanceof Error ? error.message : "Payment verification failed."); }
+          finally { setBusy(null); }
+        },
+      });
+      razorpay.on("payment.failed", (payment) => { setNoticeKind("error"); setNotice(payment.error?.description || "Payment failed. Please try again."); setBusy(null); });
+      razorpay.open();
+    } catch (error) { setNoticeKind("error"); setNotice(error instanceof Error ? error.message : "Checkout is unavailable."); setBusy(null); }
   }
 
   return <main>
+    <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" onReady={() => setCheckoutReady(true)} onError={() => { setCheckoutReady(false); setNoticeKind("error"); setNotice("Secure checkout could not be loaded. Please refresh and try again."); }} />
     <header className="nav shell"><a className="brand" href="#top"><span className="brand-mark">S</span> SHIPOPS<span className="dot">.</span></a><nav><a href="#services">Services</a><a href="#process">Process</a><a href="#pricing">Pricing</a></nav><a className="nav-cta" href="#pricing">View plans <span>↗</span></a></header>
     <section className="hero shell" id="top">
       <div className="hero-copy"><p className="eyebrow"><span /> Your DevOps team, on subscription</p><h1>SHIP FASTER.<br />SLEEP <em>BETTER.</em></h1><p className="hero-lede">Senior DevOps expertise without the hiring cycle. We design, build, and operate the cloud platform behind your product.</p><div className="hero-actions"><a className="button primary" href="#pricing">Start shipping <span>↗</span></a><a className="text-link" href="#services">Explore the service <span>↓</span></a></div><div className="proof"><div className="avatars"><span>AK</span><span>JL</span><span>MR</span><span>+</span></div><p><strong>Trusted by technical founders</strong><br />From first deploy to global scale</p></div></div>
@@ -36,7 +62,7 @@ export default function Home() {
     <div className="tech-strip"><div>CI/CD <span>✦</span> TERRAFORM <span>✦</span> DOCKER <span>✦</span> KUBERNETES <span>✦</span> AWS / GCP / AZURE <span>✦</span> GITOPS</div></div>
     <section className="services shell" id="services"><div className="section-intro"><div><p className="eyebrow"><span /> What we operate</p><h2>YOUR PLATFORM.<br /><em>ENGINEERED.</em></h2></div></div><div className="capability-grid">{capabilities.map(([num,title,text]) => <article key={num}><span className="cap-num">{num}</span><div className="cap-icon">{num === "01" ? "↗" : num === "02" ? "⌘" : num === "03" ? "☁" : "◉"}</div><h3>{title}</h3><p>{text}</p></article>)}</div></section>
     <section className="process" id="process"><div className="shell process-inner"><div><p className="eyebrow light"><span /> How it works</p><h2>ONE SUBSCRIPTION.<br /><em>ZERO BOTTLENECKS.</em></h2></div><ol><li><span>01</span><div><strong>Share your roadmap</strong><p>We audit the stack and prioritize the highest-leverage infrastructure work.</p></div></li><li><span>02</span><div><strong>We build in your stack</strong><p>Work ships in weekly cycles with full visibility in your existing tools.</p></div></li><li><span>03</span><div><strong>Scale without surprises</strong><p>Pause, upgrade, or change priorities as your product evolves.</p></div></li></ol></div></section>
-    <section className="pricing shell" id="pricing"><div className="pricing-head"><div><p className="eyebrow"><span /> Simple monthly plans</p><h2>THE RIGHT CAPACITY.<br /><em>RIGHT NOW.</em></h2></div><p>No contracts. No hidden retainers. One predictable monthly payment for senior DevOps capacity.</p></div><div className="plan-grid">{plans.map(plan => <article className={plan.featured ? "plan featured" : "plan"} key={plan.id}>{plan.featured && <div className="popular">MOST POPULAR</div>}<p className="plan-name">{plan.name}</p><p className="plan-copy">{plan.copy}</p><div className="price"><sup>$</sup>{plan.price.toLocaleString()}<span>/mo</span></div><button onClick={() => checkout(plan.id)} disabled={busy !== null}>{busy === plan.id ? "Opening checkout…" : `Choose ${plan.name}`} <span>↗</span></button><ul>{plan.features.map(feature => <li key={feature}><span>✓</span>{feature}</li>)}</ul></article>)}</div>{notice && <p className="checkout-notice" role="status">{notice}</p>}<p className="secure-note">▣ Secure checkout powered by Stripe · Cancel or change plans anytime</p></section>
+    <section className="pricing shell" id="pricing"><div className="pricing-head"><div><p className="eyebrow"><span /> Simple monthly plans</p><h2>THE RIGHT CAPACITY.<br /><em>RIGHT NOW.</em></h2></div><p>No contracts. No hidden retainers. One predictable monthly payment for senior DevOps capacity.</p></div><div className="plan-grid">{plans.map(plan => <article className={plan.featured ? "plan featured" : "plan"} key={plan.id}>{plan.featured && <div className="popular">MOST POPULAR</div>}<p className="plan-name">{plan.name}</p><p className="plan-copy">{plan.copy}</p><div className="price"><sup>₹</sup>{plan.price.toLocaleString("en-IN")}<span>/mo</span></div><button onClick={() => checkout(plan.id)} disabled={busy !== null}>{busy === plan.id ? "Opening checkout…" : `Choose ${plan.name}`} <span>↗</span></button><ul>{plan.features.map(feature => <li key={feature}><span>✓</span>{feature}</li>)}</ul></article>)}</div>{notice && <p className={`checkout-notice ${noticeKind}`} role="status">{notice}</p>}<p className="secure-note">▣ Secure checkout powered by Razorpay · Cancel or change plans anytime</p></section>
     <section className="cta"><div className="shell"><p className="eyebrow light"><span /> Ready when you are</p><h2>YOUR NEXT DEPLOY<br />STARTS <em>HERE.</em></h2><a className="button light-button" href="#pricing">Build my platform <span>↗</span></a></div></section>
     <footer className="shell"><a className="brand" href="#top"><span className="brand-mark">S</span> SHIPOPS<span className="dot">.</span></a><p>DevOps-as-a-Service for ambitious product teams.</p><p>© 2026 ShipOps</p></footer>
   </main>;

@@ -1,18 +1,51 @@
-const PLANS: Record<string, { name: string; amount: number; priceId?: string }> = {
-  launch: { name: "ShipOps Launch", amount: 89900, priceId: process.env.STRIPE_PRICE_LAUNCH },
-  scale: { name: "ShipOps Scale", amount: 189900, priceId: process.env.STRIPE_PRICE_SCALE },
-  mission: { name: "ShipOps Mission", amount: 349900, priceId: process.env.STRIPE_PRICE_MISSION },
-};
+const PLAN_ENV_KEYS = {
+  launch: "RAZORPAY_PLAN_LAUNCH",
+  scale: "RAZORPAY_PLAN_SCALE",
+  mission: "RAZORPAY_PLAN_MISSION",
+} as const;
+
+type PlanId = keyof typeof PLAN_ENV_KEYS;
+
+function isPlanId(value: unknown): value is PlanId {
+  return typeof value === "string" && value in PLAN_ENV_KEYS;
+}
+
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_SECRET_KEY;
-  const { plan: planId } = await request.json(); const plan = PLANS[planId];
-  if (!plan) return Response.json({ error: "That plan does not exist." }, { status: 400 });
-  if (!secret) return Response.json({ error: "Demo checkout is ready. Add your Stripe keys to accept live subscriptions." }, { status: 503 });
-  const origin = new URL(request.url).origin;
-  const params = new URLSearchParams({ mode: "subscription", success_url: `${origin}/?checkout=success`, cancel_url: `${origin}/#pricing`, "line_items[0][quantity]": "1" });
-  if (plan.priceId) params.set("line_items[0][price]", plan.priceId); else { params.set("line_items[0][price_data][currency]", "usd"); params.set("line_items[0][price_data][unit_amount]", String(plan.amount)); params.set("line_items[0][price_data][recurring][interval]", "month"); params.set("line_items[0][price_data][product_data][name]", plan.name); }
-  const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params });
-  const session = await stripeResponse.json();
-  if (!stripeResponse.ok) return Response.json({ error: session.error?.message || "Unable to start checkout." }, { status: 502 });
-  return Response.json({ url: session.url });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid checkout request." }, { status: 400 });
+  }
+
+  const plan = (body as { plan?: unknown })?.plan;
+  if (!isPlanId(plan)) {
+    return Response.json({ error: "That plan does not exist." }, { status: 400 });
+  }
+
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const planId = process.env[PLAN_ENV_KEYS[plan]];
+  if (!keyId || !keySecret || !planId) {
+    return Response.json({ error: "Razorpay checkout is not configured for this plan yet." }, { status: 503 });
+  }
+
+  try {
+    const razorpayResponse = await fetch("https://api.razorpay.com/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ plan_id: planId, total_count: 12, quantity: 1, customer_notify: 1, notes: { service: "ShipOps", plan } }),
+      cache: "no-store",
+    });
+    const subscription = (await razorpayResponse.json()) as { id?: string; error?: { description?: string } };
+    if (!razorpayResponse.ok || !subscription.id) {
+      return Response.json({ error: subscription.error?.description || "Unable to start Razorpay checkout." }, { status: 502 });
+    }
+    return Response.json({ subscriptionId: subscription.id, keyId });
+  } catch {
+    return Response.json({ error: "Unable to reach Razorpay. Please try again." }, { status: 502 });
+  }
 }
