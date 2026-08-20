@@ -3,31 +3,33 @@ import "./globals.css";
 
 const title = "ShipOps — DevOps as a Service";
 const description = "Senior DevOps expertise on subscription. CI/CD, Terraform, Kubernetes, cloud infrastructure, and GitOps for ambitious product teams.";
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const metadataBase = new URL(configuredSiteUrl.endsWith("/") ? configuredSiteUrl : `${configuredSiteUrl}/`);
+const assetUrl = (path: string) => new URL(path.replace(/^\//, ""), metadataBase).toString();
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase,
   title,
   description,
-  alternates: { canonical: "/" },
+  alternates: { canonical: metadataBase.toString() },
   icons: {
-    icon: [{ url: "/icon", type: "image/png" }],
-    apple: [{ url: "/apple-icon", type: "image/png" }],
+    icon: [{ url: assetUrl("icon"), type: "image/png" }],
+    apple: [{ url: assetUrl("apple-icon"), type: "image/png" }],
   },
   openGraph: {
     type: "website",
-    url: "/",
+    url: metadataBase.toString(),
     title,
     description,
     siteName: "ShipOps",
     locale: "en_IN",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "ShipOps — Ship faster. Sleep better." }],
+    images: [{ url: assetUrl("og.png"), width: 1200, height: 630, alt: "ShipOps — Ship faster. Sleep better." }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: [{ url: "/og.png", alt: "ShipOps — Ship faster. Sleep better." }],
+    images: [{ url: assetUrl("og.png"), alt: "ShipOps — Ship faster. Sleep better." }],
   },
 };
 
