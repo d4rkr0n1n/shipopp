@@ -14,6 +14,7 @@ on:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
+  attestations: write
   contents: read
   pages: write
   id-token: write
@@ -84,7 +85,7 @@ jobs:
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@v4.2.2
         with:
-          subject-path: ".next/**"
+          subject-path: "out/**"
 
 
   # Deployment job
