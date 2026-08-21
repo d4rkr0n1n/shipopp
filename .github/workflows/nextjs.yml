@@ -24,7 +24,10 @@ permissions:
 concurrency:
   group: "pages"
   cancel-in-progress: false
-
+env:
+  MAJOR: 0
+  MINOR: 0
+  PATCH: 0
 jobs:
   # Build job
   build:
@@ -104,18 +107,33 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: v0.0.0.${{ github.run_id }}
-          release_name: Release v0.0.0.${{ github.run_id }}
-          body: |
-            Dev Release v0.0.0.${{ github.run_id }} of the Next.js site deployed to GitHub Pages.
-          draft: false
-          prerelease: false
+      - name: Generate version
+        id: version
+        shell: bash
+        run: |
+          VERSION="v${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
 
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          echo "Release version: $VERSION"
+
+      - name: Build
+        run: |
+          echo "Building $VERSION"
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --generate-notes
