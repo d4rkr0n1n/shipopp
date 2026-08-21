@@ -81,6 +81,8 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./out
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v4.2.2
 
   # Deployment job
   deploy:
