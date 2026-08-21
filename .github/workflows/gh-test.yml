@@ -1,0 +1,42 @@
+name: gh-test
+on:
+  pull_request:
+    branches: ["dev"]
+  workflow_dispatch:
+env:
+  MAJOR: 0
+  MINOR: 0
+  PATCH: 0
+permissions:
+  contents: write
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Generate version
+        id: version
+        shell: bash
+        run: |
+          VERSION="v${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Release version: $VERSION"
+      - name: Build
+        run: |
+          echo "Building $VERSION"
+      - name: Create Git tag
+        run: |
+          git config user.name "Mridul Roy"
+          git config user.email "midlry.mr@gmail.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --generate-notes
