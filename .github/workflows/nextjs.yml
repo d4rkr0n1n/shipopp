@@ -15,7 +15,7 @@ on:
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   attestations: write
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -114,24 +114,18 @@ jobs:
         shell: bash
         run: |
           VERSION="v${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
-
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
           echo "Release version: $VERSION"
-
       - name: Build
         run: |
           echo "Building $VERSION"
-
       - name: Create Git tag
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+          git config user.name "Mridul Roy"
+          git config user.email "midlry.mr@gmail.com"
           git tag "$VERSION"
           git push origin "$VERSION"
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
