@@ -27,7 +27,8 @@ jobs:
               echo "Pull request source and target branches are allowed."
             else  
               echo "ERROR: The main branch only accepts pull requests coming from the dev branch."
-            exit 1
+              exit 1
+            fi
           fi
 
           echo "Pull request source and target branches are allowed."
