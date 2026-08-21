@@ -7,6 +7,8 @@ env:
   MAJOR: 0
   MINOR: 0
   PATCH: 0
+permissions:
+  contents: write
 jobs:
   release:
     name: Create Release
