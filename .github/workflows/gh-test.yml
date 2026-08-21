@@ -27,6 +27,8 @@ jobs:
           echo "Building $VERSION"
       - name: Create Git tag
         run: |
+          git config user.name "Mridul Roy"
+          git config user.email "midlry.mr@gmail.com"
           git tag "$VERSION"
           git push origin "$VERSION"
       - name: Create GitHub Release
