@@ -22,8 +22,11 @@ jobs:
           echo "PR Source Branch: $SOURCE_BRANCH"
           echo "PR Target Branch: $TARGET_BRANCH"
 
-          if [ "$TARGET_BRANCH" = "main" ] && [ "$SOURCE_BRANCH" = "dev" ]; then
-            echo "ERROR: The main branch only accepts pull requests coming from the dev branch."
+          if [ "$TARGET_BRANCH" = "main" ]; then
+            if [ "$SOURCE_BRANCH" = "dev" ]; then
+              echo "Pull request source and target branches are allowed."
+            else  
+              echo "ERROR: The main branch only accepts pull requests coming from the dev branch."
             exit 1
           fi
 
