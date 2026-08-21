@@ -99,7 +99,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-
+  
   release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -118,3 +118,4 @@ jobs:
             Dev Release v0.0.0.${{ github.run_id }} of the Next.js site deployed to GitHub Pages.
           draft: false
           prerelease: false
+
