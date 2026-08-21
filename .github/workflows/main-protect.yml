@@ -1,0 +1,34 @@
+name: Enforce Dev to Main PRs
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request source branch
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          echo "PR Source Branch: $SOURCE_BRANCH"
+          echo "PR Target Branch: $TARGET_BRANCH"
+
+          if [ "$TARGET_BRANCH" = "main" ]; then
+            if [ "$SOURCE_BRANCH" = "dev" ]; then
+              echo "Pull request source and target branches are allowed."
+            else  
+              echo "ERROR: The main branch only accepts pull requests coming from the dev branch."
+              exit 1
+            fi
+          fi
+
+          echo "Pull request source and target branches are allowed."
