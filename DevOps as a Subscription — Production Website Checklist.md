@@ -23,7 +23,7 @@
 - [ ] Email notifications
 
 ### Payments
-- [x] Subscription payments
+- [ ] Subscription payments
 - [ ] Automated invoices
 - [ ] GST-ready billing if targeting India
 - [ ] Upgrade/downgrade/cancel flow
