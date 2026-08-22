@@ -1,7 +1,6 @@
 const PLAN_ENV_KEYS = {
+  audit: "RAZORPAY_PLAN_AUDIT",
   launch: "RAZORPAY_PLAN_LAUNCH",
-  scale: "RAZORPAY_PLAN_SCALE",
-  mission: "RAZORPAY_PLAN_MISSION",
 } as const;
 
 type PlanId = keyof typeof PLAN_ENV_KEYS;
